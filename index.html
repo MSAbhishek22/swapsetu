@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SwapSetu 3D — a working model of a battery-swap city</title>
+<meta name="description" content="A 3D simulation of an EV battery-swap network: riders drain, queue, swap and ride on. Add a station and watch the wait fall.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+</head>
+<body>
+
+<header class="masthead">
+  <p class="kicker">Hacksmart 2.0 · Battery Smart × Geek Room · EV mobility</p>
+  <h1>SwapSetu <span class="thin">3D</span></h1>
+  <p class="standfirst">A dead battery should not end a rider's day.</p>
+  <p class="lede">In Indian cities, thousands of e-rickshaw and delivery riders
+  run on swappable batteries. When a battery dies mid-shift, the rider loses
+  work until they find a swap station with a charged pack and no queue.
+  SwapSetu is a working 3D model of that city. Riders drain, queue, swap and
+  ride on — live, in your browser. Add a station where the model hurts, and
+  watch the wait fall.</p>
+  <p><a class="btn" href="#model">Open the model ↓</a></p>
+</header>
+
+<main>
+  <!-- ======================= THE APP ======================= -->
+  <section id="model" class="model-section" aria-label="SwapSetu 3D simulation">
+    <div class="toolbar" role="group" aria-label="Simulation controls">
+      <button id="btn-play" class="tbtn primary" aria-pressed="true">❚❚&nbsp; Pause</button>
+
+      <div class="seg" role="group" aria-label="Simulation speed">
+        <button class="tbtn speed" data-speed="0.5">0.5×</button>
+        <button class="tbtn speed active" data-speed="1" aria-pressed="true">1×</button>
+        <button class="tbtn speed" data-speed="2">2×</button>
+        <button class="tbtn speed" data-speed="4">4×</button>
+      </div>
+
+      <label class="slider-wrap" for="time-slider">
+        <span class="slider-label">Time of day&nbsp; <strong id="time-label">08:00 · Steady</strong></span>
+        <input id="time-slider" type="range" min="5" max="23" step="1" value="8"
+               aria-describedby="time-hint">
+        <span id="time-hint" class="hint">Morning and evening peaks push demand up.</span>
+      </label>
+
+      <button id="btn-add" class="tbtn" aria-pressed="false">＋ Add station</button>
+      <button id="btn-view" class="tbtn">View: Tilt</button>
+      <button id="btn-reset" class="tbtn">Reset</button>
+    </div>
+    <p id="add-hint" class="add-hint" hidden>Station placement is on. Click any road
+      junction in the model to place a station. Press Esc or the Add station button again to stop.</p>
+
+    <div class="stage">
+      <div class="canvas-wrap" id="canvas-wrap">
+        <canvas id="scene" role="img"
+          aria-label="3D model of a city with battery-swap stations and moving riders. Use the station list beside the model to inspect stations by keyboard."></canvas>
+
+        <aside id="station-card" class="station-card" hidden aria-live="polite">
+          <button id="card-close" class="card-close" aria-label="Close station details">×</button>
+          <h3 id="card-title">Station A</h3>
+          <p class="card-zone" id="card-zone">Central zone</p>
+          <div class="packbar" aria-hidden="true"><div id="card-packfill"></div></div>
+          <dl class="card-stats">
+            <div><dt>Charged packs ready</dt><dd id="card-packs">–</dd></div>
+            <div><dt>Riders in queue</dt><dd id="card-queue">–</dd></div>
+            <div><dt>Swaps today</dt><dd id="card-swaps">–</dd></div>
+            <div><dt>Average wait here</dt><dd id="card-wait">–</dd></div>
+          </dl>
+        </aside>
+
+        <p class="canvas-note">Drag to turn the model · Scroll to zoom · Click a green tower for its numbers</p>
+      </div>
+
+      <aside class="panel" aria-label="Live numbers and station list">
+        <h2 class="panel-title">Live ledger</h2>
+        <dl class="ledger">
+          <div><dt>City clock</dt><dd id="st-clock">08:00</dd></div>
+          <div><dt>Riders on the road</dt><dd id="st-riders">0</dd></div>
+          <div><dt>Swaps completed</dt><dd id="st-swaps">0</dd></div>
+          <div><dt>Riders served</dt><dd id="st-served">0</dd></div>
+          <div><dt>Average wait</dt><dd id="st-wait">—</dd></div>
+          <div><dt>Stations</dt><dd id="st-stations">6</dd></div>
+          <div><dt>Worst-served zone</dt><dd id="st-worst">—</dd></div>
+        </dl>
+        <p class="panel-note" id="worst-note">The worst-served zone is shaded red on the
+          model once enough swaps have happened there.</p>
+
+        <h2 class="panel-title">Stations</h2>
+        <ul id="station-list" class="station-list"></ul>
+        <p class="panel-note">Selecting a station here does the same as clicking
+          its tower in the model.</p>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ======================= SOLUTION ======================= -->
+  <section id="solution" class="text-section">
+    <h2>How a swap works in the model</h2>
+    <div class="steps">
+      <div class="step">
+        <p class="step-num">1</p>
+        <h3>Riders drain</h3>
+        <p>Every rider carries one battery. Riding drains it. The small bar
+        over each rider turns from green to red as the charge falls.</p>
+      </div>
+      <div class="step">
+        <p class="step-num">2</p>
+        <h3>They pick a station</h3>
+        <p>At low charge, a rider heads for the nearest station that should
+        have a charged pack. If that station is out of packs, they queue —
+        and the wait is timed.</p>
+      </div>
+      <div class="step">
+        <p class="step-num">3</p>
+        <h3>Swap and ride on</h3>
+        <p>The dead pack goes into the charger and a full one goes into the
+        vehicle. The station slowly recharges its packs, so a busy station
+        can run dry at peak hours.</p>
+      </div>
+    </div>
+    <p>The point of the model is placement. Six stations cover this city
+    unevenly, so one zone waits much longer than the rest. You can fix it
+    yourself: switch on <strong>Add station</strong>, click a junction in
+    the red zone, and watch the average wait fall.</p>
+  </section>
+
+  <!-- ======================= OUTCOME ======================= -->
+  <section id="outcome" class="text-section">
+    <h2>What the model shows, live</h2>
+    <p>These are the simulation's own numbers, right now — not a screenshot
+    of a good day.</p>
+    <div class="outcome-grid">
+      <div class="outcome-cell">
+        <p class="outcome-num" id="oc-wait">—</p>
+        <p class="outcome-label">average wait for a swap</p>
+      </div>
+      <div class="outcome-cell">
+        <p class="outcome-num" id="oc-swaps">0</p>
+        <p class="outcome-label">swaps completed in this session</p>
+      </div>
+      <div class="outcome-cell">
+        <p class="outcome-num" id="oc-worst">—</p>
+        <p class="outcome-label">worst-served zone right now</p>
+      </div>
+    </div>
+    <p>A swap network is only as good as its worst corner. SwapSetu makes
+    that corner visible — and lets a planner test a fix in seconds instead
+    of after a costly rollout.</p>
+  </section>
+</main>
+
+<footer>
+  <p><strong>Honest limits.</strong> SwapSetu is a simple teaching model,
+  not real Battery Smart data. Drain, recharge and demand follow plain
+  rules written in the README, so the numbers show how placement behaves,
+  not what any real station earns or waits today.</p>
+  <p>Built with Three.js (r160, vendored — no build step) for Hacksmart 2.0.
+  Solo build by M S Abhishek.</p>
+</footer>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
